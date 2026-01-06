@@ -4,6 +4,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { MANTLE_SEPOLIA_NETWORK, isMantleSepolia } from '../config/network';
 
+// Extend Window interface to include ethereum property
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: { method: string; params?: any[] }) => Promise<any>;
+      on: (event: string, handler: (...args: any[]) => void) => void;
+      removeListener: (event: string, handler: (...args: any[]) => void) => void;
+      isMetaMask?: boolean;
+    };
+  }
+}
+
 interface WalletState {
   address: string | null;
   chainId: number | null;
@@ -79,6 +91,10 @@ export function useWallet() {
   }, []);
 
   const switchToMantleSepolia = useCallback(async () => {
+    if (!window.ethereum) {
+      throw new Error('MetaMask not available');
+    }
+
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
@@ -168,9 +184,11 @@ export function useWallet() {
     window.ethereum.on('disconnect', handleDisconnect);
 
     return () => {
-      window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-      window.ethereum.removeListener('chainChanged', handleChainChanged);
-      window.ethereum.removeListener('disconnect', handleDisconnect);
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+        window.ethereum.removeListener('disconnect', handleDisconnect);
+      }
     };
   }, [disconnect]);
 
